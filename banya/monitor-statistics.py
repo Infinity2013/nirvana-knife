@@ -152,6 +152,7 @@ def get_imei(path):
 
 
 def parse_ts_stub(line, path=None):
+    line = line.strip(chr(0x00))
     with LogSession(LogSession.LOG_LEVEL_DEBUG, 'parse_ts_stub(%s, %s)' % (line, path)):
         # ----------- 01-01 08:18:35.004 ---------- length = 41
         if len(line) > 50:
@@ -560,6 +561,9 @@ class StatNode:
                 elif 'softirq'in line:
                     self.softirq = map(int, line.split()[1:])
 
+            if self.cpu is None or self.intr is None or self.ctx is None or self.softirq is None:
+                raise ValueError('invalid block')
+
     def __getattr__(self, item):
         if item in ['cpu_utilization', 'intr_per_sec', 'ctx_per_sec', 'softirq_per_sec']:
             if item not in self.__dict__:
@@ -641,9 +645,12 @@ def parse_stat(path):
                                 print (path, i)
                                 prev = -1
                                 continue
-                            node = StatNode(imei, ts, version, block=lines[prev: i])
-                            prev = i
-                            output_list.append(node)
+                            try:
+                                node = StatNode(imei, ts, version, block=lines[prev: i])
+                                prev = i
+                                output_list.append(node)
+                            except ValueError:
+                                pass
         return output_list
 
 
