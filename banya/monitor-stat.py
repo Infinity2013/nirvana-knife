@@ -97,23 +97,27 @@ def parse_ts(line, path=None):
 
 
 class NodeBase:
-    def __init__(self, imei=None, version=None, monitor=None, ts=None, path=None):
-        if imei is not None and version is not None and monitor is not None:
-            self.imei = imei
-            self.version = version
-            self.monitor = monitor
-        elif path is not None:
-            self.imei = parse_imei(path)
-            self.version = parse_version(path)
-            self.monitor = parse_monitor(path)
-        else:
-            raise ValueError('invalid args')
+    SQL_TABLE = "create table if not exists %s" \
+                " (hash varchar(255), version varchar(255)," \
+                " imei varchar(255), monitor varchar(255)," \
+                " domain varchar(255), value_range long," \
+                " count long, primary key(hash))"
+    INSERT_MANY_PATTERN = "insert into %s" \
+                          " (hash ,version, imei, monitor, domain, value_range, count)" \
+                          " values(%s, %s, %s, %s, %s, %s, %s)" \
+                          " on duplicate key update count=count+values(count)"
+
+    def __init__(self, path=None, block=None, ts=-1):
+        self.path = path
+        self.block = block
         self.ts = ts
-        self.hash = get_file_hash(path)
 
     @session(LogSession.LOG_LEVEL_DEBUG)
     def parse_ts(self, line, path=None):
         self.ts = parse_ts(line, path)
+
+    def parse_block(self):
+        pass
 
     def __setstate__(self, state):
         return False
@@ -124,9 +128,22 @@ class NodeBase:
     def __repr__(self):
         return self.__str__()
 
+    def __getattr__(self, item):
+        if item in ['imei', 'version', 'monitor', 'hash', 'domain', 'value_range']:
+            if item not in self.__dict__:
+                imei = parse_imei(self.path)
+
+
     def __getitem__(self, item):
         return self.__getattr__(item)
 
+    def __getinitargs__(self):
+        return self.path, self.block, self.ts
+
+    def sql_args(self):
+        args_list = [self.hash, self.version, self.imei, self.monitor,
+                     self.domain, self.value_range, self.count]
+        return tuple(args_list)
 
 def check_initialize(func):
     def wrapper(self, *args, **kwargs):
@@ -176,10 +193,6 @@ class FileHistoryNode(NodeBase):
                 self.__dict__[item] = 0
         return self.__dict__[item]
 
-    @check_initialize
-    def __getitem__(self, item):
-        return self.__getattr__(item)
-
     @staticmethod
     def add_node(node, field):
         if len(FileHistoryNode.FIELD_DICT.keys()) > FileHistoryNode.RESERVED_FIELD_SIZE:
@@ -217,6 +230,55 @@ class FileHistoryNode(NodeBase):
                                                         duplicate_placeholder])
         FileHistoryNode.INITIALIZED = True
 
+
+class ProcessMemNode(NodeBase):
+    TABLE_NAME = "process_mem"
+    TABLE_FIELD = "mem"
+    SQL_TABLE = "create table if not exists " + \
+                TABLE_NAME + \
+                " (hash varchar(255), version varchar(255)," \
+                " imei varchar(255), monitor varchar(255)," \
+                " domain varchar(255), value_range long," \
+                " count long, primary key(hash))"
+    INSERT_MANY_PATTERN = "insert into " + \
+                          TABLE_NAME + \
+                          " (hash ,version, imei, monitor, domain, value_range, count)" \
+                          " values(%s, %s, %s, %s, %s, %s, %s)" \
+                          " on duplicate key update count=count+values(count)"
+
+    def __init__(self, path, block):
+        super(ProcessMemNode, self).__init__(path=path, block=block)
+
+class DeviceStatNode(NodeBase):
+    TABLE_NAME = "device_stat"
+    TABLE_FIELD = "stat"
+
+    def __init__(self, path, domain=None, value_range=None, count=None, block=None):
+        super(DeviceStatNode, self).__init__(path=path)
+        if domain is not None and value_range is not None and count is not None:
+            self.domain = domain
+            self.value_range = value_range
+            self.count = count
+        elif block is not None:
+            pass
+        else:
+            raise ValueError("invalid args")
+
+    def sql_args(self):
+        args_list = [self.hash, self.version, self.imei, self.monitor,
+                     self.domain, self.value_range, self.count]
+        return tuple(args_list)
+
+
+class DeviceUpTimeNode(NodeBase):
+    TABLE_NAME = "device_up_time"
+    TABLE_FILED = "up_time"
+
+    def __init__(self, path):
+        super(DeviceUpTimeNode, self).__init__(path=path)
+
+
+    @staticmethod
 
 class DbUtil:
     sInstance = None
@@ -310,5 +372,5 @@ FileHistoryNode.initialize()
 print (FileHistoryNode.SQL_TABLE)
 print (FileHistoryNode.INSERT_MANY_PATTERN)
 
-
+print (DeviceUpTimeNode.SQL_TABLE)
 
