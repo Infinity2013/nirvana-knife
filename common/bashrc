@@ -35,3 +35,10 @@ _bbcomplete() {
 }
 
 complete -F _bbcomplete bb
+
+function cdtoday {
+    today=$(date +%Y/%m/%d)
+    today_path=$HOME/workspace/log/$today
+    mkdir -p $today_path
+    cd $today_path
+}
