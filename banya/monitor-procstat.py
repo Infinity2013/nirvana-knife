@@ -39,7 +39,7 @@ def parse_stat(fname):
         ctxt /= duration
         intr /= duration
 
-        res_list.append({'ts': info_list[i]['ts'].strftime('%m%d %H%M%S'), 'cpu_utilization': cpu_utilization,
+        res_list.append({'ts': info_list[i]['ts'].strftime('%m%d %H%M'), 'cpu_utilization': cpu_utilization,
                          'ctxt': int(ctxt), 'intr': int(intr)})
     return res_list
 
@@ -55,7 +55,7 @@ def main():
     line.add('cpu', attr, cpu_utilization, is_smooth=True, xaxis_rotate=45, xaxis_interval=15, mark_line=['max', 'average'])
     line.add('ctxt', attr, ctxt, is_smooth=True, xaxis_rotate=45, xaxis_interval=15, mark_line=['max', 'average'])
     line.add('intr', attr, intr, is_smooth=True, xaxis_rotate=45, xaxis_interval=15, mark_line=['max', 'average'])
-    line.render()
+    line.render('procstat.html')
 
 
 if __name__ == '__main__':
